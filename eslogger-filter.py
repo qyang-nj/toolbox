@@ -6,41 +6,58 @@ import re
 import argparse
 import os
 from colorama import Fore, Style
-
-
-def is_process_event(event):
-    return "exec" in event
+import psutil
 
 
 def match_pattern(name, pattern):
+    """Check if the name matches the pattern. If pattern is None, return True (always match)."""
     return (pattern is None) or re.search(name, pattern)
 
 
+def process_name(pid):
+    """Get the process name by PID."""
+    try:
+        process = psutil.Process(pid)
+        return process.name()
+    except psutil.NoSuchProcess:
+        return None
+
+
 def filter_eslogger(name_pattern, show_child_process=False):
+    """Filter the output of `eslogger` to only show cared processes and information."""
     pid_set = set()
+
+    for proc in psutil.process_iter():
+        if match_pattern(proc.name(), name_pattern):
+            pid_set.add(proc.pid)
 
     for line in sys.stdin:
         try:
             data = json.loads(line)
             event = data["event"]
             process = data["process"]
-            pid = process["parent_audit_token"]["pid"] if is_process_event(event) else process["audit_token"]["pid"]
+            pid = process["audit_token"]["pid"]
+            ppid = process["parent_audit_token"]["pid"]
+            responsible_pid = process["responsible_audit_token"]["pid"]
             executable_path = process["executable"]["path"]
             executable_name = os.path.basename(executable_path)
 
-            if (pid not in pid_set) and (not match_pattern(executable_name, name_pattern)):
+            if match_pattern(executable_name, name_pattern):
+                pid_set.add(pid)
+            elif show_child_process and (responsible_pid in pid_set):
+                pid_set.add(pid)
+            else:
                 continue
 
-            print(f'{Fore.GREEN}{executable_name}({pid}){Style.RESET_ALL} ', end="")
+            print(f"{Fore.GREEN}{executable_name} {Style.DIM}({pid},{ppid},{
+                  process_name(responsible_pid)}){Style.RESET_ALL} ", end="")
 
             if "exec" in event:
-                child_pid = event["exec"]["target"]["audit_token"]["pid"]
-
-                if show_child_process:
-                    pid_set.add(child_pid)
-
                 args = event["exec"]["args"]
-                print(f'[EXEC]({child_pid}) {" ".join(args)}')
+                print(f'[EXEC] {" ".join(args)}')
+            elif "fork" in event:
+                child_pid = event["fork"]["child"]["audit_token"]["pid"]
+                print(f'[FORK] Child PID: {child_pid}')
             elif "open" in event:
                 print(f'[OPEN] {event["open"]["file"]["path"]}')
             elif "write" in event:
