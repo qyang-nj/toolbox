@@ -23,7 +23,7 @@ def process_name(pid):
         return None
 
 
-def filter_eslogger(name_pattern, show_child_process=False):
+def filter_eslogger(name_pattern, show_child_process=False, show_env_vars=False):
     """Filter the output of `eslogger` to only show cared processes and information."""
     pid_set = set()
 
@@ -55,6 +55,10 @@ def filter_eslogger(name_pattern, show_child_process=False):
             if "exec" in event:
                 args = event["exec"]["args"]
                 print(f'[EXEC] {" ".join(args)}')
+
+                if show_env_vars:
+                    for element in event["exec"]["env"]:
+                        print(f"{Style.DIM}  {element}{Style.RESET_ALL}")
             elif "fork" in event:
                 child_pid = event["fork"]["child"]["audit_token"]["pid"]
                 print(f'[FORK] Child PID: {child_pid}')
@@ -89,9 +93,11 @@ For more information about `eslogger`, please refer to `man eslogger`.
                         help="Regex pattern for matching process names. Omitting this will log all processes.")
     parser.add_argument("-c", "--show-child-process", action="store_true",
                         help="Include child processes of the processes matched by --name.")
+    parser.add_argument("-e", "--show-env-vars", action="store_true",
+                        help="Include environment variables in the output.")
     args = parser.parse_args()
 
     try:
-        filter_eslogger(args.name, args.show_child_process)
+        filter_eslogger(args.name, args.show_child_process, args.show_env_vars)
     except KeyboardInterrupt:
         sys.exit(0)
