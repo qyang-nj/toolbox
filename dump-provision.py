@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import os
 import subprocess
 import plistlib
 import sys
@@ -19,25 +18,25 @@ def parse_provisioning_profile(profile_path):
 
 
 def default_provisioning_profiles_directory():
-    return os.path.join(Path.home(), "Library", "MobileDevice", "Provisioning Profiles")
+    return Path.home() / "Library" / "Developer" / "Xcode" / "UserData" / "Provisioning Profiles"
 
 
 def dump_all_provisioning_profile(provisioning_profiles_directory, show_details=False):
 
-    if not os.path.exists(provisioning_profiles_directory):
-        print(f"The directory '{provisioning_profiles_directory}' does not exist.", file=sys.stderr)
+    directory = Path(provisioning_profiles_directory)
+    if not directory.exists():
+        print(f"The directory '{directory}' does not exist.", file=sys.stderr)
         return
 
-    profiles = os.listdir(provisioning_profiles_directory)
-    provisioning_profiles = [profile for profile in profiles if profile.endswith(
-        ('.mobileprovision', '.provisionprofile'))]
-    provisioning_profiles.sort(key=lambda p: (Path(p).suffix, len(Path(p).name)))
+    provisioning_profiles = sorted(
+        [p for p in directory.iterdir() if p.suffix in ('.mobileprovision', '.provisionprofile')],
+        key=lambda p: (p.suffix, len(p.name)),
+    )
 
     # Read and parse the contents of each provisioning profile
-    for profile in provisioning_profiles:
-        profile_path = os.path.join(provisioning_profiles_directory, profile)
+    for profile_path in provisioning_profiles:
         profile = parse_provisioning_profile(profile_path)
-        basename = os.path.basename(profile_path)
+        basename = profile_path.name
 
         if show_details:
             print(f'{Fore.BLUE}{basename}{Style.RESET_ALL}: ')
