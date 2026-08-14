@@ -27,7 +27,14 @@ def parse_provisioning_profile(profile_path):
 
 
 def default_provisioning_profiles_directory():
-    return Path.home() / "Library" / "MobileDevice" / "Provisioning Profiles"
+    return (
+        Path.home()
+        / "Library"
+        / "Developer"
+        / "Xcode"
+        / "UserData"
+        / "Provisioning Profiles"
+    )
 
 
 def profile_platform(profile):
